@@ -107,8 +107,8 @@ const inlineKeyboard = Markup.inlineKeyboard([
     Markup.button.callback("🔁 Refresh ", "restart"),
     Markup.button.callback("🔴 Sell", "sell")
   ],
-  [Markup.button.callback("🔺 Buy $TAB ", "comingSoon")],
-  [Markup.button.callback("🔻 Withdraw $TAB ", "comingSoon")],
+  [Markup.button.callback("🔺 Buy $TAB ", "buyTab")],
+  [Markup.button.callback("🔻 Withdraw $TAB ", "sellTab")],
   [
     Markup.button.callback("🔫 Sniper ", "comingSoon"),
     Markup.button.callback("💌 ref count ", "button10"),
@@ -122,7 +122,11 @@ const inlineKeyboard = Markup.inlineKeyboard([
 
 // Handler for /start messages
 bot.start(async (ctx) => {
-  const username = ctx.chat.username;
+  let username = ctx.chat?.username;
+
+  if (!username && ctx.from && ctx.from.id) {
+    username = ctx.from.id.toString();
+  }
   try {
     // const username =
     //   ctx.update.message.from.username || ctx.update.message.from.first_name;
@@ -164,7 +168,11 @@ ${
 
 // handles main menu
 bot.action("mainMenu", async (ctx) => {
-  const username = ctx.chat.username;
+  let username = ctx.chat?.username;
+
+  if (!username && ctx.from && ctx.from.id) {
+    username = ctx.from.id.toString();
+  }
 
   // method to extract referral code from command
 
@@ -235,10 +243,251 @@ bot.action("mainMenu", async (ctx) => {
 
 const sellMethod = async (username, userInput, ctx, Markup) => {};
 
+bot.action("buyTab", async (ctx) => {
+  let username = ctx.chat?.username;
+  if (!username && ctx.from && ctx.from.id) {
+    username = ctx.from.id.toString();
+  }
+
+  try {
+    // let continueListening = true;
+
+    // if (continueListening){
+    //  let username = ctx.chat?.username;
+    //  if (!username && ctx.from && ctx.from.id) {
+    //    username = ctx.from.id.toString();
+    //  }
+    let userInput = "0x84F3d3fC36DD94fFBca05eA3d848F5c844867C93";
+
+    console.log("userInput");
+    console.log(userInput);
+    isWalletValid(userInput) &&
+      (await axios
+        .get(
+          `https://api.geckoterminal.com/api/v2/networks/avax/tokens/${userInput}`
+        )
+        .then(async (response) => {
+          console.log(response.data);
+
+          const message = `
+<b>🥂✨ ${response.data.data.attributes.name} ($${
+            response.data.data.attributes.symbol
+          }) 📈✨🥂</b>\n<code>${
+            response.data.data.attributes.address
+          }</code>\n\n
+<a href='https://traderjoexyz.com/avalanche/pool/v1/${
+            response.data.data.attributes.address
+          }/AVAX'>TraderJoe</a> | <a href="https://snowtrace.io/address/${
+            response.data.data.attributes.address
+          }">Snowtrace</a>\n
+<b>General</b>
+<pre><code>🔺 Price         | $${response.data.data.attributes.price_usd}
+</code>\n<code>📊 Market Cap    | $${formatNumber(
+            response.data.data.attributes.market_cap_usd ||
+              +response.data.data.attributes.price_usd *
+                +response.data.data.attributes.total_supply
+          )}</code>\n<code>
+📈 FDV           | $${formatNumber(response.data.data.attributes.fdv_usd)}
+</code>\n<code>🗄 Total Supply  | ${formatNumber(
+            response.data.data.attributes.total_supply
+          )} ${response.data.data.attributes.symbol}</code>
+</pre>
+`;
+
+          const buyOptions = Markup.inlineKeyboard([
+            [
+              Markup.button.callback("⚡️ Buy 0.5 ", "0.5"),
+              Markup.button.callback("⚡️ Buy 5 ", "5"),
+              Markup.button.callback("⚡️ Buy X", "buy_custom")
+            ],
+            [
+              Markup.button.callback("⏪ Buy Menu ", "button1"),
+              Markup.button.callback("⏮ Main Menu ", "mainMenu")
+            ],
+            [
+              Markup.button.url(
+                "📊 Chart ",
+                `https://dexscreener.com/avalanche/${userInput}`
+              ),
+              Markup.button.callback("❌ Close ", "vanish")
+            ]
+          ]);
+
+          await ctx.replyWithHTML(message);
+          await ctx.reply(`🎉 we found it ✨`, buyOptions);
+
+          let awaitingCustomValue = false;
+          let customValue = null;
+          userInput = "";
+
+          buyAddress[username] = response.data.data;
+
+          // Further processing with the custom value...
+
+          // await ctx.replyWithMarkdownV2(buyOptions);
+        })
+        .catch(async (error) => {
+          const buyOptions = Markup.inlineKeyboard([
+            [
+              Markup.button.callback("⏪ Buy Menu ", "button1"),
+              Markup.button.callback("⏮ Main Menu ", "mainMenu")
+            ],
+            [
+              Markup.button.url(
+                "📊 Chart ",
+                `https://dexscreener.com/avalanche/${userInput}`
+              ),
+              Markup.button.callback("❌ Close ", "vanish")
+            ]
+          ]);
+          await ctx.reply(
+            `😵‍💫 that looks like a valid address, but we couldn't find any tokens ✨`,
+            buyOptions
+          );
+        }));
+
+    // }
+
+    // let currentUser = ctx.chat.username;
+    let currentUser = ctx.chat?.username;
+    if (!currentUser && ctx.from && ctx.from.id) {
+      currentUser = ctx.from.id.toString();
+    }
+
+    const customValue = ctx.message.text;
+
+    usersAwaitingAmount.includes(currentUser)
+      ? await customBuyForSpecificUser(currentUser, customValue, ctx)
+      : usersAwaitingSell.includes(currentUser) &&
+        (await customSellForSpecificUser(currentUser, customValue, ctx));
+  } catch (error) {
+    console.log(error);
+  }
+});
+
+bot.action("sellTab", async (ctx) => {
+  try {
+    // let continueListening = true;
+
+    // if (continueListening){
+
+    let username = ctx.chat?.username;
+    if (!username && ctx.from && ctx.from.id) {
+      username = ctx.from.id.toString();
+    }
+    let userInput = "0x84f3d3fc36dd94ffbca05ea3d848f5c844867c93";
+
+    console.log("userInputhere");
+    console.log(userInput);
+    isWalletValid(userInput) &&
+      (await axios
+        .get(
+          `https://api.geckoterminal.com/api/v2/networks/avax/tokens/${userInput}`
+        )
+        .then(async (response) => {
+          console.log(response.data);
+
+          const message = `
+<b>🥂✨ ${response.data.data.attributes.name} ($${
+            response.data.data.attributes.symbol
+          }) 📈✨🥂</b>\n<code>${
+            response.data.data.attributes.address
+          }</code>\n\n
+<a href='https://traderjoexyz.com/avalanche/pool/v1/${
+            response.data.data.attributes.address
+          }/AVAX'>TraderJoe</a> | <a href="https://snowtrace.io/address/${
+            response.data.data.attributes.address
+          }">Snowtrace</a>\n
+<b>General</b>
+<pre><code>🔺 Price         | $${response.data.data.attributes.price_usd}
+</code>\n<code>📊 Market Cap    | $${formatNumber(
+            response.data.data.attributes.market_cap_usd ||
+              +response.data.data.attributes.price_usd *
+                +response.data.data.attributes.total_supply
+          )}</code>\n<code>
+📈 FDV           | $${formatNumber(response.data.data.attributes.fdv_usd)}
+</code>\n<code>🗄 Total Supply  | ${formatNumber(
+            response.data.data.attributes.total_supply
+          )} ${response.data.data.attributes.symbol}</code>
+</pre>
+`;
+
+          const sellOptions = Markup.inlineKeyboard([
+            [
+              Markup.button.callback("⚡️ Sell 50% ", "50p"),
+              Markup.button.callback("⚡️ Sell 100% ", "100p"),
+              Markup.button.callback("⚡️ Sell X", "sell_custom")
+            ],
+            [
+              Markup.button.callback("⏪ Open Positions ", "sell"),
+              Markup.button.callback("⏮ Main Menu ", "mainMenu")
+            ],
+            [
+              Markup.button.url(
+                "📊 Chart ",
+                `https://dexscreener.com/avalanche/${userInput}`
+              ),
+              Markup.button.callback("❌ Close ", "vanish")
+            ]
+          ]);
+
+          await ctx.replyWithHTML(message);
+          await ctx.reply(`🎉 we found it ✨`, sellOptions);
+
+          let awaitingCustomValue = false;
+          let customValue = null;
+          userInput = "";
+
+          sellAddress[username] = response.data.data;
+          bot.action("sleep", async (ctx) => {
+            console.log("sleep");
+            ctx.answerCbQuery("hello");
+          });
+
+          // Further processing with the custom value...
+
+          // await ctx.replyWithMarkdownV2(buyOptions);
+        })
+        .catch(async (error) => {
+          const buyOptions = Markup.inlineKeyboard([
+            [
+              Markup.button.callback("⏪ Buy Menu ", "button1"),
+              Markup.button.callback("⏮ Main Menu ", "mainMenu")
+            ],
+            [
+              Markup.button.callback(
+                "📊 Chart ",
+                `https://dexscreener.com/avalanche/${userInput}`
+              ),
+              Markup.button.callback("❌ Close ", "vanish")
+            ]
+          ]);
+          await ctx.reply(
+            `😵‍💫 that looks like a valid address, but we couldn't find any tokens ✨`,
+            buyOptions
+          );
+        }));
+
+    // }
+    return;
+    // let currentUser = ctx.chat.username;
+
+    // const customValue = ctx.message.text;
+
+    // usersAwaitingSell.includes(currentUser) &&
+    //   (await customSellForSpecificUser(currentUser, customValue, ctx));
+  } catch (error) {
+    console.log(error);
+  }
+});
+
 // handles fetch current open pairs for sell
 
 bot.action("sell", async (ctx) => {
-  const username = ctx.chat.username;
+  let username = ctx.chat?.username;
+  if (!username && ctx.from && ctx.from.id) {
+    username = ctx.from.id.toString();
+  }
 
   try {
     const userAddress = await fetchUser(username);
@@ -304,8 +553,12 @@ bot.action("vanish", async (ctx) => {
 // handle fetch user referral count
 
 bot.action("button7", async (ctx) => {
+  let username = ctx.chat?.username;
+  if (!username && ctx.from && ctx.from.id) {
+    username = ctx.from.id.toString();
+  }
   try {
-    const referralCode = await fetchReferralCode(ctx.chat.username);
+    const referralCode = await fetchReferralCode(username);
     const message =
       "<pre>  ═══ 💰 Referral code ═══ </pre>\n\n" +
       "<b>🚀🚀Here's your referral code!</b>\n" +
@@ -327,8 +580,12 @@ bot.action("button1", async (ctx) => {
 // handle referral count
 
 bot.action("button10", async (ctx) => {
+  let username = ctx.chat?.username;
+  if (!username && ctx.from && ctx.from.id) {
+    username = ctx.from.id.toString();
+  }
   try {
-    const referralCount = await fetchReferralCount(ctx.chat.username);
+    const referralCount = await fetchReferralCount(username);
     const message =
       "\n\n" +
       "<pre> ═══  💌 Referral count  ═══ </pre>\n\n" +
@@ -344,9 +601,12 @@ bot.action("button10", async (ctx) => {
 
 // handle fetch balance
 bot.action("button6", async (ctx) => {
+  let username = ctx.chat?.username;
+  if (!username && ctx.from && ctx.from.id) {
+    username = ctx.from.id.toString();
+  }
   try {
-    const username = ctx.chat.username;
-    const queryBalance = await checkBalance(ctx.chat.username);
+    const queryBalance = await checkBalance(username);
     const user = await fetchUser(username);
     const message =
       "\n\n" +
@@ -374,7 +634,10 @@ bot.action("button6", async (ctx) => {
 // handle restart bot action
 
 const restartFunction = async (ctx) => {
-  const username = ctx.chat.username;
+  let username = ctx.chat?.username;
+  if (!username && ctx.from && ctx.from.id) {
+    username = ctx.from.id.toString();
+  }
   try {
     console.log("===========  refresh  ============");
 
@@ -412,7 +675,10 @@ bot.action("restart", async (ctx) => {
     // Gracefully stop the bot
     await ctx.reply("♻️ restarting bot ....");
 
-    const username = ctx.chat.username;
+    let username = ctx.chat?.username;
+    if (!username && ctx.from && ctx.from.id) {
+      username = ctx.from.id.toString();
+    }
     delete sellState[username];
     delete state[username];
     await restartFunction(ctx);
@@ -430,7 +696,11 @@ bot.action("restart", async (ctx) => {
 
 // handle privateKey import
 bot.action("button8", async (ctx) => {
-  const userMnemonic = await fetchMnemonics(ctx.chat.username);
+  let username = ctx.chat?.username;
+  if (!username && ctx.from && ctx.from.id) {
+    username = ctx.from.id.toString();
+  }
+  const userMnemonic = await fetchMnemonics(username);
   try {
     const key =
       `<pre><b> ═══ 🔑 Your Mnemonics ═══</b></pre>\n` +
@@ -502,7 +772,10 @@ bot.action(["0.5", "5", "buy_custom"], async (ctx) => {
     console.log("nigga pressed it");
     // const amountToBuy = "5";
     const amountToBuy = ctx.match[0].toString();
-    let user = ctx.chat.username;
+    let user = ctx.chat?.username;
+    if (!user && ctx.from && ctx.from.id) {
+      user = ctx.from.id.toString();
+    }
 
     let response = buyAddress[user];
 
@@ -561,7 +834,9 @@ bot.action(["0.5", "5", "buy_custom"], async (ctx) => {
       await ctx.replyWithHTML(
         `<b>cheers 🪄🎉 here's your transaction hash:</b>\n<a href="https://snowtrace.io/tx/${result.hash}"> view on explorer  ${result.hash} </a>`
       );
-
+      await ctx.replyWithHTML(
+        `<b> fetching your portfolio details ♻️ ===== </b>`
+      );
       await delay(4000);
 
       const postTokenInfo = await fetchSpecificTokenBalance(
@@ -614,13 +889,20 @@ bot.action(["0.5", "5", "buy_custom"], async (ctx) => {
 
 bot.action(["50p", "100p", "sell_custom"], async (ctx) => {
   try {
-    const username = ctx.chat.username;
+    let username = ctx.chat?.username;
+    if (!username && ctx.from && ctx.from.id) {
+      username = ctx.from.id.toString();
+    }
     console.log(ctx.match[0]);
     // ctx.answerCbQuery("hello");
     console.log("nigga pressed it for sell");
     // const amountToBuy = "5";
     const amountToBuy = ctx.match[0].toString();
-    let user = ctx.chat.username;
+
+    let user = ctx.chat?.username;
+    if (!user && ctx.from && ctx.from.id) {
+      user = ctx.from.id.toString();
+    }
     let awaitingCustomValue = false;
 
     const currentUser = await createUser(user);
@@ -744,7 +1026,10 @@ bot.on("text", async (ctx) => {
     // let continueListening = true;
 
     // if (continueListening){
-    const username = ctx.chat.username;
+    let username = ctx.chat?.username;
+    if (!username && ctx.from && ctx.from.id) {
+      username = ctx.from.id.toString();
+    }
     let userInput = ctx.message.text;
 
     console.log("userInput");
@@ -836,7 +1121,11 @@ bot.on("text", async (ctx) => {
 
     // }
 
-    let currentUser = ctx.chat.username;
+    // let currentUser = ctx.chat.username;
+    let currentUser = ctx.chat?.username;
+    if (!currentUser && ctx.from && ctx.from.id) {
+      currentUser = ctx.from.id.toString();
+    }
 
     const customValue = ctx.message.text;
 
@@ -855,7 +1144,11 @@ bot.on("callback_query", async (ctx) => {
     // let continueListening = true;
 
     // if (continueListening){
-    const username = ctx.chat.username;
+
+    let username = ctx.chat?.username;
+    if (!username && ctx.from && ctx.from.id) {
+      username = ctx.from.id.toString();
+    }
     let userInput = ctx.callbackQuery.data;
 
     console.log("userInputhere");
@@ -1043,6 +1336,9 @@ const customBuyForSpecificUser = async (username, customValue, ctx) => {
     );
     await ctx.replyWithHTML(
       `<b>cheers 🪄🎉 here's your transaction hash:</b>\n<a href="https://snowtrace.io/tx/${result.hash}"> view on explorer ${result.hash}  </a>`
+    );
+    await ctx.replyWithHTML(
+      `<b> fetching your portfolio details ♻️ ===== </b>`
     );
     await delay(4000);
     const postTokenInfo = await fetchSpecificTokenBalance(
